@@ -12,9 +12,9 @@ This build uses the updated PNG/JPEG assets supplied with the project.
 - Enemy Level 1: **100 HP**
 - Enemy Level 2: **150 HP**
 - Enemy Level 3: **200 HP**
-- Boss Level 1: **500 HP**
-- Boss Level 2: **750 HP**
-- Boss Level 3: **1000 HP**
+- Boss Level 1: **5000 HP**
+- Boss Level 2: **7500 HP**
+- Boss Level 3: **10000 HP**
 - Gun 1: **50 damage**
 - Gun 2: **75 damage**
 - Gun 3: **100 damage**
@@ -27,9 +27,9 @@ This build uses the updated PNG/JPEG assets supplied with the project.
 - Bosses also display their HP.
 - Normal enemies **do not shoot**.
 - Bosses shoot **slowly**.
-- Boss 1 starts at **25 enemy kills** (2500% interpreted as 25 enemies).
-- Boss 2 starts at **50 enemy kills**.
-- Boss 3 starts at **100 enemy kills**.
+- Boss 1 starts at **100 enemy kills** (2500% interpreted as 25 enemies).
+- Boss 2 starts at **250 enemy kills**.
+- Boss 3 starts at **500 enemy kills**.
 - Gun art changes in the heroine's hand when the gun level changes.
 - After Boss 3 is defeated, the mission-complete screen appears.
 
