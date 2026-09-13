@@ -459,8 +459,7 @@ button:active {
 <script>
 
 /* =========================================================
-   GALAXY GIRLS
-   Basic playable mobile game
+   GALAXY GIRLS - FIXED GAME ENGINE
    ========================================================= */
 
 const game = document.getElementById("game");
@@ -476,23 +475,23 @@ const finalScore = document.getElementById("finalScore");
 
 const bossWarning = document.getElementById("bossWarning");
 
+
+/* =========================================================
+   GAME STATE
+   ========================================================= */
+
 let gameRunning = false;
+let gameOver = false;
 
 let playerX = 80;
 let playerY = 0;
-
 let velocityY = 0;
 
 let moveLeft = false;
 let moveRight = false;
 
 let health = 100;
-
-/*
-   Starting with 5 hearts.
-*/
 let hearts = 5;
-
 let score = 0;
 
 let enemies = [];
@@ -504,7 +503,262 @@ let enemySpawnTimer = 0;
 let bossActive = false;
 let boss = null;
 
+let bossSpawnTimer = null;
+
 let lastTime = 0;
+
+
+/* =========================================================
+   SOUND ENGINE
+   No sound files required
+   ========================================================= */
+
+let audioCtx = null;
+
+function initAudio() {
+
+    if (!audioCtx) {
+        const AudioContext =
+            window.AudioContext ||
+            window.webkitAudioContext;
+
+        if (AudioContext) {
+            audioCtx = new AudioContext();
+        }
+    }
+
+    if (audioCtx && audioCtx.state === "suspended") {
+        audioCtx.resume();
+    }
+}
+
+
+/* Generic beep */
+
+function playTone(
+    frequency,
+    duration,
+    type = "sine",
+    volume = 0.08,
+    slideTo = null
+) {
+
+    if (!audioCtx) return;
+
+    const oscillator =
+        audioCtx.createOscillator();
+
+    const gain =
+        audioCtx.createGain();
+
+    oscillator.type = type;
+
+    oscillator.frequency.setValueAtTime(
+        frequency,
+        audioCtx.currentTime
+    );
+
+    if (slideTo) {
+
+        oscillator.frequency.linearRampToValueAtTime(
+            slideTo,
+            audioCtx.currentTime + duration
+        );
+    }
+
+    gain.gain.setValueAtTime(
+        volume,
+        audioCtx.currentTime
+    );
+
+    gain.gain.exponentialRampToValueAtTime(
+        0.001,
+        audioCtx.currentTime + duration
+    );
+
+    oscillator.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    oscillator.start();
+
+    oscillator.stop(
+        audioCtx.currentTime + duration
+    );
+}
+
+
+/* =========================================================
+   JUMP SOUND
+   ========================================================= */
+
+function playJumpSound() {
+
+    initAudio();
+
+    playTone(
+        420,
+        0.12,
+        "square",
+        0.07,
+        760
+    );
+
+    setTimeout(() => {
+
+        playTone(
+            760,
+            0.08,
+            "sine",
+            0.04,
+            900
+        );
+
+    }, 60);
+}
+
+
+/* =========================================================
+   GUN SHOOT SOUND
+   ========================================================= */
+
+function playShootSound() {
+
+    initAudio();
+
+    playTone(
+        180,
+        0.06,
+        "sawtooth",
+        0.13,
+        70
+    );
+
+    setTimeout(() => {
+
+        playTone(
+            900,
+            0.035,
+            "square",
+            0.05,
+            300
+        );
+
+    }, 10);
+}
+
+
+/* =========================================================
+   ENEMY DEATH SOUND
+   ========================================================= */
+
+function playEnemyDeathSound() {
+
+    initAudio();
+
+    playTone(
+        260,
+        0.12,
+        "sawtooth",
+        0.09,
+        80
+    );
+
+    setTimeout(() => {
+
+        playTone(
+            120,
+            0.16,
+            "square",
+            0.07,
+            45
+        );
+
+    }, 70);
+}
+
+
+/* =========================================================
+   HEROINE DEATH SOUND
+   ========================================================= */
+
+function playHeroineDeathSound() {
+
+    initAudio();
+
+    playTone(
+        500,
+        0.25,
+        "sine",
+        0.10,
+        180
+    );
+
+    setTimeout(() => {
+
+        playTone(
+            280,
+            0.35,
+            "sine",
+            0.09,
+            55
+        );
+
+    }, 180);
+
+    setTimeout(() => {
+
+        playTone(
+            100,
+            0.45,
+            "sawtooth",
+            0.05,
+            40
+        );
+
+    }, 350);
+}
+
+
+/* =========================================================
+   BOSS DEFEATED SOUND
+   ========================================================= */
+
+function playBossDeathSound() {
+
+    initAudio();
+
+    playTone(
+        180,
+        0.20,
+        "sawtooth",
+        0.10,
+        500
+    );
+
+    setTimeout(() => {
+
+        playTone(
+            500,
+            0.20,
+            "square",
+            0.08,
+            900
+        );
+
+    }, 120);
+
+    setTimeout(() => {
+
+        playTone(
+            900,
+            0.35,
+            "sine",
+            0.08,
+            150
+        );
+
+    }, 250);
+}
 
 
 /* =========================================================
@@ -513,38 +767,60 @@ let lastTime = 0;
 
 function updatePlayer(dt) {
 
+    if (!gameRunning || gameOver) return;
+
     const speed = 260;
 
     if (moveLeft) {
+
         playerX -= speed * dt;
-        player.classList.add("playerFlip");
+
+        player.classList.add(
+            "playerFlip"
+        );
     }
 
     if (moveRight) {
+
         playerX += speed * dt;
-        player.classList.remove("playerFlip");
+
+        player.classList.remove(
+            "playerFlip"
+        );
     }
 
-    playerX = Math.max(0, Math.min(
-        game.clientWidth - player.offsetWidth,
-        playerX
-    ));
-
-    /* Gravity */
+    playerX = Math.max(
+        0,
+        Math.min(
+            game.clientWidth -
+            player.offsetWidth,
+            playerX
+        )
+    );
 
     velocityY += 1100 * dt;
+
     playerY += velocityY * dt;
 
-    const ground = game.clientHeight - 115 - player.offsetHeight;
+    const ground =
+        game.clientHeight -
+        115 -
+        player.offsetHeight;
 
     if (playerY > ground) {
+
         playerY = ground;
+
         velocityY = 0;
     }
 
-    player.style.left = playerX + "px";
+    player.style.left =
+        playerX + "px";
+
     player.style.bottom =
-        (game.clientHeight - playerY - player.offsetHeight) + "px";
+        (game.clientHeight -
+        playerY -
+        player.offsetHeight) + "px";
 }
 
 
@@ -554,12 +830,18 @@ function updatePlayer(dt) {
 
 function jump() {
 
+    if (!gameRunning || gameOver) return;
+
     const ground =
-        game.clientHeight - 115 - player.offsetHeight;
+        game.clientHeight -
+        115 -
+        player.offsetHeight;
 
     if (playerY >= ground - 5) {
 
         velocityY = -500;
+
+        playJumpSound();
     }
 }
 
@@ -570,27 +852,38 @@ function jump() {
 
 function shoot() {
 
-    if (!gameRunning) return;
+    if (!gameRunning || gameOver) return;
 
-    const rect = player.getBoundingClientRect();
-    const gameRect = game.getBoundingClientRect();
+    initAudio();
 
-    const bullet = document.createElement("div");
+    playShootSound();
+
+    const rect =
+        player.getBoundingClientRect();
+
+    const gameRect =
+        game.getBoundingClientRect();
+
+    const bullet =
+        document.createElement("div");
 
     bullet.className = "bullet";
 
-    let bx =
+    const bx =
         rect.left -
         gameRect.left +
         rect.width * .75;
 
-    let by =
+    const by =
         rect.top -
         gameRect.top +
         rect.height * .42;
 
-    bullet.style.left = bx + "px";
-    bullet.style.top = by + "px";
+    bullet.style.left =
+        bx + "px";
+
+    bullet.style.top =
+        by + "px";
 
     game.appendChild(bullet);
 
@@ -601,9 +894,11 @@ function shoot() {
         speed: 850
     });
 
-    /* muzzle flash */
 
-    const muzzle = document.createElement("div");
+    /* Muzzle */
+
+    const muzzle =
+        document.createElement("div");
 
     muzzle.className = "muzzle";
 
@@ -616,7 +911,13 @@ function shoot() {
     game.appendChild(muzzle);
 
     setTimeout(() => {
-        muzzle.remove();
+
+        if (muzzle &&
+            muzzle.parentNode) {
+
+            muzzle.remove();
+        }
+
     }, 120);
 }
 
@@ -627,32 +928,42 @@ function shoot() {
 
 function createEnemy() {
 
-    if (bossActive) return;
+    if (!gameRunning ||
+        gameOver ||
+        bossActive) return;
 
-    const enemy = document.createElement("div");
+    const enemy =
+        document.createElement("div");
 
     enemy.className = "enemy";
 
-    let x =
+    const x =
         game.clientWidth + 20;
 
-    let y =
+    const y =
         game.clientHeight -
         115 -
         95;
 
-    enemy.style.left = x + "px";
-    enemy.style.top = y + "px";
+    enemy.style.left =
+        x + "px";
+
+    enemy.style.top =
+        y + "px";
 
     game.appendChild(enemy);
 
     enemies.push({
+
         el: enemy,
         x: x,
         y: y,
-        speed: 80 + Math.random() * 60,
-        hp: 3,
-        attackTimer: 0
+
+        speed:
+            80 +
+            Math.random() * 60,
+
+        hp: 3
     });
 }
 
@@ -663,35 +974,89 @@ function createEnemy() {
 
 function createBoss() {
 
+    if (!gameRunning ||
+        gameOver ||
+        bossActive ||
+        boss) return;
+
     bossActive = true;
 
-    bossWarning.style.display = "block";
+    bossWarning.style.display =
+        "block";
 
-    setTimeout(() => {
 
-        bossWarning.style.display = "none";
+    /* Cancel old timer */
 
-        boss = document.createElement("div");
+    if (bossSpawnTimer) {
 
-        boss.className = "enemy boss";
+        clearTimeout(
+            bossSpawnTimer
+        );
 
-        boss.style.left =
-            (game.clientWidth - 190) + "px";
+        bossSpawnTimer = null;
+    }
 
-        boss.style.top =
-            (game.clientHeight / 2 - 100) + "px";
 
-        game.appendChild(boss);
+    bossSpawnTimer =
+        setTimeout(() => {
 
-        boss = {
-            el: boss,
-            x: game.clientWidth - 190,
-            y: game.clientHeight / 2 - 100,
-            hp: 25,
-            speed: 45
-        };
+            bossSpawnTimer = null;
 
-    }, 1500);
+            /* IMPORTANT:
+               Player may have died during
+               the 1.5 second warning.
+            */
+
+            if (!gameRunning ||
+                gameOver) {
+
+                bossActive = false;
+
+                bossWarning.style.display =
+                    "none";
+
+                return;
+            }
+
+
+            bossWarning.style.display =
+                "none";
+
+            const bossElement =
+                document.createElement("div");
+
+            bossElement.className =
+                "enemy boss";
+
+            const bx =
+                game.clientWidth - 190;
+
+            const by =
+                game.clientHeight / 2 - 100;
+
+            bossElement.style.left =
+                bx + "px";
+
+            bossElement.style.top =
+                by + "px";
+
+            game.appendChild(
+                bossElement
+            );
+
+            boss = {
+
+                el: bossElement,
+
+                x: bx,
+                y: by,
+
+                hp: 25,
+
+                speed: 45
+            };
+
+        }, 1500);
 }
 
 
@@ -701,17 +1066,28 @@ function createBoss() {
 
 function deathEffect(x, y) {
 
-    const effect = document.createElement("div");
+    const effect =
+        document.createElement("div");
 
-    effect.className = "deathEffect";
+    effect.className =
+        "deathEffect";
 
-    effect.style.left = x + "px";
-    effect.style.top = y + "px";
+    effect.style.left =
+        x + "px";
+
+    effect.style.top =
+        y + "px";
 
     game.appendChild(effect);
 
     setTimeout(() => {
-        effect.remove();
+
+        if (effect &&
+            effect.parentNode) {
+
+            effect.remove();
+        }
+
     }, 700);
 }
 
@@ -722,16 +1098,25 @@ function deathEffect(x, y) {
 
 function createLoot(x, y) {
 
-    const loot = document.createElement("div");
+    if (!gameRunning ||
+        gameOver) return;
 
-    loot.className = "loot";
+    const loot =
+        document.createElement("div");
 
-    loot.style.left = x + "px";
-    loot.style.top = y + "px";
+    loot.className =
+        "loot";
+
+    loot.style.left =
+        x + "px";
+
+    loot.style.top =
+        y + "px";
 
     game.appendChild(loot);
 
     loots.push({
+
         el: loot,
         x: x,
         y: y
@@ -745,6 +1130,10 @@ function createLoot(x, y) {
 
 function damagePlayer(amount) {
 
+    if (!gameRunning ||
+        gameOver) return;
+
+
     health -= amount;
 
     if (health < 0) {
@@ -754,6 +1143,7 @@ function damagePlayer(amount) {
     healthFill.style.width =
         health + "%";
 
+
     if (health <= 0) {
 
         hearts--;
@@ -762,11 +1152,16 @@ function damagePlayer(amount) {
 
             health = 100;
 
-            healthFill.style.width = "100%";
+            healthFill.style.width =
+                "100%";
 
         } else {
 
+            /* FINAL DEATH */
+
             endGame();
+
+            return;
         }
     }
 
@@ -782,7 +1177,12 @@ function updateHeartDisplay() {
 
     let heartsText = "";
 
-    for (let i = 0; i < hearts; i++) {
+    for (
+        let i = 0;
+        i < hearts;
+        i++
+    ) {
+
         heartsText += "❤️";
     }
 
@@ -798,11 +1198,115 @@ function updateHeartDisplay() {
 function collision(a, b) {
 
     return (
-        a.x < b.x + b.width &&
-        a.x + a.width > b.x &&
-        a.y < b.y + b.height &&
-        a.y + a.height > b.y
+
+        a.x <
+        b.x + b.width &&
+
+        a.x + a.width >
+        b.x &&
+
+        a.y <
+        b.y + b.height &&
+
+        a.y + a.height >
+        b.y
     );
+}
+
+
+/* =========================================================
+   CLEAR ALL GAME OBJECTS
+   ========================================================= */
+
+function clearGameObjects() {
+
+    /* Enemies */
+
+    enemies.forEach(e => {
+
+        if (e.el &&
+            e.el.parentNode) {
+
+            e.el.remove();
+        }
+    });
+
+    enemies = [];
+
+
+    /* Bullets */
+
+    bullets.forEach(b => {
+
+        if (b.el &&
+            b.el.parentNode) {
+
+            b.el.remove();
+        }
+    });
+
+    bullets = [];
+
+
+    /* Loot */
+
+    loots.forEach(l => {
+
+        if (l.el &&
+            l.el.parentNode) {
+
+            l.el.remove();
+        }
+    });
+
+    loots = [];
+
+
+    /* Boss */
+
+    if (boss &&
+        boss.el &&
+        boss.el.parentNode) {
+
+        boss.el.remove();
+    }
+
+    boss = null;
+
+
+    /* Boss warning */
+
+    bossWarning.style.display =
+        "none";
+
+
+    /* Cancel pending boss spawn */
+
+    if (bossSpawnTimer) {
+
+        clearTimeout(
+            bossSpawnTimer
+        );
+
+        bossSpawnTimer = null;
+    }
+
+
+    bossActive = false;
+
+
+    /* Remove any old effects */
+
+    document
+        .querySelectorAll(
+            ".deathEffect, .muzzle"
+        )
+        .forEach(el => {
+
+            if (el.parentNode) {
+                el.remove();
+            }
+        });
 }
 
 
@@ -812,24 +1316,35 @@ function collision(a, b) {
 
 function update(dt) {
 
-    if (!gameRunning) return;
+    if (!gameRunning ||
+        gameOver) return;
 
     updatePlayer(dt);
 
-    /* -----------------------------------------
-       Bullets
-       ----------------------------------------- */
 
-    for (let i = bullets.length - 1; i >= 0; i--) {
+    /* =====================================================
+       BULLETS
+       ===================================================== */
+
+    for (
+        let i = bullets.length - 1;
+        i >= 0;
+        i--
+    ) {
 
         const b = bullets[i];
 
-        b.x += b.speed * dt;
+        b.x +=
+            b.speed * dt;
 
         b.el.style.left =
             b.x + "px";
 
-        if (b.x > game.clientWidth + 100) {
+
+        if (
+            b.x >
+            game.clientWidth + 100
+        ) {
 
             b.el.remove();
 
@@ -838,27 +1353,51 @@ function update(dt) {
             continue;
         }
 
+
         const bulletRect = {
+
             x: b.x,
             y: b.y,
+
             width: 24,
             height: 8
         };
 
-        /* Enemy collision */
 
-        for (let j = enemies.length - 1; j >= 0; j--) {
+        /* =================================================
+           ENEMY COLLISION
+           ================================================= */
 
-            const e = enemies[j];
+        let bulletUsed = false;
+
+        for (
+            let j = enemies.length - 1;
+            j >= 0;
+            j--
+        ) {
+
+            const e =
+                enemies[j];
 
             const enemyRect = {
+
                 x: e.x,
                 y: e.y,
-                width: e.el.offsetWidth,
-                height: e.el.offsetHeight
+
+                width:
+                    e.el.offsetWidth,
+
+                height:
+                    e.el.offsetHeight
             };
 
-            if (collision(bulletRect, enemyRect)) {
+
+            if (
+                collision(
+                    bulletRect,
+                    enemyRect
+                )
+            ) {
 
                 e.hp--;
 
@@ -866,15 +1405,29 @@ function update(dt) {
 
                 bullets.splice(i, 1);
 
+                bulletUsed = true;
+
+
                 if (e.hp <= 0) {
 
-                    deathEffect(e.x, e.y);
+                    playEnemyDeathSound();
 
-                    createLoot(e.x, e.y);
+                    deathEffect(
+                        e.x,
+                        e.y
+                    );
+
+                    createLoot(
+                        e.x,
+                        e.y
+                    );
 
                     e.el.remove();
 
-                    enemies.splice(j, 1);
+                    enemies.splice(
+                        j,
+                        1
+                    );
 
                     score += 100;
 
@@ -886,18 +1439,37 @@ function update(dt) {
             }
         }
 
-        /* Boss collision */
+
+        if (bulletUsed) {
+            continue;
+        }
+
+
+        /* =================================================
+           BOSS COLLISION
+           ================================================= */
 
         if (boss) {
 
             const bossRect = {
+
                 x: boss.x,
                 y: boss.y,
-                width: boss.el.offsetWidth,
-                height: boss.el.offsetHeight
+
+                width:
+                    boss.el.offsetWidth,
+
+                height:
+                    boss.el.offsetHeight
             };
 
-            if (collision(bulletRect, bossRect)) {
+
+            if (
+                collision(
+                    bulletRect,
+                    bossRect
+                )
+            ) {
 
                 boss.hp--;
 
@@ -905,7 +1477,10 @@ function update(dt) {
 
                 bullets.splice(i, 1);
 
+
                 if (boss.hp <= 0) {
+
+                    playBossDeathSound();
 
                     deathEffect(
                         boss.x,
@@ -924,7 +1499,14 @@ function update(dt) {
                         "SCORE: " + score;
 
                     setTimeout(() => {
-                        alert("BOSS DEFEATED! 🎉");
+
+                        if (!gameOver) {
+
+                            alert(
+                                "BOSS DEFEATED! 🎉"
+                            );
+                        }
+
                     }, 200);
                 }
             }
@@ -932,38 +1514,67 @@ function update(dt) {
     }
 
 
-    /* -----------------------------------------
-       Enemies
-       ----------------------------------------- */
+    /* =====================================================
+       ENEMIES
+       ===================================================== */
 
-    for (let i = enemies.length - 1; i >= 0; i--) {
+    for (
+        let i = enemies.length - 1;
+        i >= 0;
+        i--
+    ) {
 
-        const e = enemies[i];
+        const e =
+            enemies[i];
 
-        e.x -= e.speed * dt;
+        e.x -=
+            e.speed * dt;
 
         e.el.style.left =
             e.x + "px";
 
-        /* Enemy reaches player */
 
         const pRect = {
+
             x: playerX,
             y: playerY,
-            width: player.offsetWidth,
-            height: player.offsetHeight
+
+            width:
+                player.offsetWidth,
+
+            height:
+                player.offsetHeight
         };
+
 
         const eRect = {
+
             x: e.x,
             y: e.y,
-            width: e.el.offsetWidth,
-            height: e.el.offsetHeight
+
+            width:
+                e.el.offsetWidth,
+
+            height:
+                e.el.offsetHeight
         };
 
-        if (collision(pRect, eRect)) {
+
+        if (
+            collision(
+                pRect,
+                eRect
+            )
+        ) {
 
             damagePlayer(12);
+
+            /* If final death happened,
+               stop immediately */
+
+            if (gameOver) {
+                return;
+            }
 
             e.el.remove();
 
@@ -971,6 +1582,7 @@ function update(dt) {
 
             continue;
         }
+
 
         if (e.x < -150) {
 
@@ -981,20 +1593,27 @@ function update(dt) {
     }
 
 
-    /* -----------------------------------------
-       Boss movement
-       ----------------------------------------- */
+    /* =====================================================
+       BOSS
+       ===================================================== */
 
-    if (boss) {
+    if (boss &&
+        gameRunning &&
+        !gameOver) {
 
-        boss.x -= boss.speed * dt;
+        boss.x -=
+            boss.speed * dt;
 
-        if (boss.x <
-            game.clientWidth * .55) {
+
+        if (
+            boss.x <
+            game.clientWidth * .55
+        ) {
 
             boss.x =
                 game.clientWidth * .55;
         }
+
 
         boss.el.style.left =
             boss.x + "px";
@@ -1002,62 +1621,106 @@ function update(dt) {
         boss.el.style.top =
             boss.y + "px";
 
+
         const pRect = {
+
             x: playerX,
             y: playerY,
-            width: player.offsetWidth,
-            height: player.offsetHeight
+
+            width:
+                player.offsetWidth,
+
+            height:
+                player.offsetHeight
         };
+
 
         const bossRect = {
+
             x: boss.x,
             y: boss.y,
-            width: boss.el.offsetWidth,
-            height: boss.el.offsetHeight
+
+            width:
+                boss.el.offsetWidth,
+
+            height:
+                boss.el.offsetHeight
         };
 
-        if (collision(pRect, bossRect)) {
+
+        if (
+            collision(
+                pRect,
+                bossRect
+            )
+        ) {
 
             damagePlayer(25);
+
+            if (gameOver) {
+                return;
+            }
         }
     }
 
 
-    /* -----------------------------------------
-       Loot collection
-       ----------------------------------------- */
+    /* =====================================================
+       LOOT
+       ===================================================== */
 
-    for (let i = loots.length - 1; i >= 0; i--) {
+    for (
+        let i = loots.length - 1;
+        i >= 0;
+        i--
+    ) {
 
-        const l = loots[i];
+        const l =
+            loots[i];
 
-        l.y += 35 * dt;
+        l.y +=
+            35 * dt;
 
         l.el.style.top =
             l.y + "px";
 
+
         const pRect = {
+
             x: playerX,
             y: playerY,
-            width: player.offsetWidth,
-            height: player.offsetHeight
+
+            width:
+                player.offsetWidth,
+
+            height:
+                player.offsetHeight
         };
 
+
         const lRect = {
+
             x: l.x,
             y: l.y,
+
             width: 55,
             height: 55
         };
 
-        if (collision(pRect, lRect)) {
+
+        if (
+            collision(
+                pRect,
+                lRect
+            )
+        ) {
 
             score += 250;
 
             scoreText.textContent =
                 "SCORE: " + score;
 
-            /* Restore health */
+
+            /* Restore 40 health */
 
             health += 40;
 
@@ -1068,20 +1731,28 @@ function update(dt) {
             healthFill.style.width =
                 health + "%";
 
+
             l.el.remove();
 
-            loots.splice(i, 1);
+            loots.splice(
+                i,
+                1
+            );
         }
     }
 
 
-    /* -----------------------------------------
-       Spawn enemies
-       ----------------------------------------- */
+    /* =====================================================
+       ENEMY SPAWN
+       ===================================================== */
 
     enemySpawnTimer += dt;
 
-    if (enemySpawnTimer > 2.2) {
+    if (
+        enemySpawnTimer > 2.2 &&
+        !bossActive &&
+        !boss
+    ) {
 
         enemySpawnTimer = 0;
 
@@ -1089,9 +1760,9 @@ function update(dt) {
     }
 
 
-    /* -----------------------------------------
-       Boss after score
-       ----------------------------------------- */
+    /* =====================================================
+       BOSS AFTER SCORE
+       ===================================================== */
 
     if (
         score >= 1500 &&
@@ -1124,23 +1795,35 @@ function gameLoop(time) {
 
     update(dt);
 
-    requestAnimationFrame(gameLoop);
+    requestAnimationFrame(
+        gameLoop
+    );
 }
 
-requestAnimationFrame(gameLoop);
+requestAnimationFrame(
+    gameLoop
+);
 
 
 /* =========================================================
-   START
+   START / RESTART
    ========================================================= */
 
 function startGame() {
 
-    startScreen.style.display =
-        "none";
+    /* Start audio after user interaction */
 
-    gameOverScreen.style.display =
-        "none";
+    initAudio();
+
+
+    /* Completely clear old game */
+
+    clearGameObjects();
+
+
+    /* Reset state */
+
+    gameOver = false;
 
     gameRunning = true;
 
@@ -1153,11 +1836,25 @@ function startGame() {
 
     velocityY = 0;
 
+    moveLeft = false;
+    moveRight = false;
+
     health = 100;
 
     hearts = 5;
 
     score = 0;
+
+    enemySpawnTimer = 0;
+
+    bossActive = false;
+
+    boss = null;
+
+    lastTime = performance.now();
+
+
+    /* Reset UI */
 
     healthFill.style.width =
         "100%";
@@ -1166,6 +1863,23 @@ function startGame() {
         "SCORE: 0";
 
     updateHeartDisplay();
+
+
+    player.style.left =
+        playerX + "px";
+
+    player.style.bottom =
+        "115px";
+
+
+    startScreen.style.display =
+        "none";
+
+    gameOverScreen.style.display =
+        "none";
+
+    bossWarning.style.display =
+        "none";
 }
 
 
@@ -1175,13 +1889,61 @@ function startGame() {
 
 function endGame() {
 
+    /* VERY IMPORTANT:
+       Lock game FIRST.
+       This prevents repeated death.
+    */
+
+    if (gameOver) return;
+
+    gameOver = true;
+
     gameRunning = false;
+
+
+    /* Stop movement */
+
+    moveLeft = false;
+    moveRight = false;
+
+    velocityY = 0;
+
+
+    /* Cancel boss warning timer */
+
+    if (bossSpawnTimer) {
+
+        clearTimeout(
+            bossSpawnTimer
+        );
+
+        bossSpawnTimer = null;
+    }
+
+
+    /* Hide boss warning */
+
+    bossWarning.style.display =
+        "none";
+
+
+    /* Heroine death sound */
+
+    playHeroineDeathSound();
+
+
+    /* Show game over */
 
     finalScore.textContent =
         "Final Score: " + score;
 
     gameOverScreen.style.display =
         "flex";
+
+
+    /* Clear active objects */
+
+    clearGameObjects();
 }
 
 
@@ -1208,38 +1970,80 @@ document
    MOBILE MOVEMENT
    ========================================================= */
 
-function holdButton(button, down, up) {
+function holdButton(
+    button,
+    down,
+    up
+) {
 
     button.addEventListener(
         "touchstart",
         e => {
+
             e.preventDefault();
+
+            initAudio();
+
             down();
+
         },
-        {passive:false}
+        { passive: false }
     );
+
 
     button.addEventListener(
         "touchend",
         e => {
+
             e.preventDefault();
+
             up();
+
         },
-        {passive:false}
+        { passive: false }
     );
+
+
+    button.addEventListener(
+        "touchcancel",
+        e => {
+
+            e.preventDefault();
+
+            up();
+
+        },
+        { passive: false }
+    );
+
 
     button.addEventListener(
         "mousedown",
         e => {
+
             e.preventDefault();
+
             down();
+
         }
     );
+
 
     button.addEventListener(
         "mouseup",
         e => {
+
             e.preventDefault();
+
+            up();
+
+        }
+    );
+
+
+    button.addEventListener(
+        "mouseleave",
+        () => {
             up();
         }
     );
@@ -1247,28 +2051,49 @@ function holdButton(button, down, up) {
 
 
 holdButton(
-    document.getElementById("leftBtn"),
+
+    document.getElementById(
+        "leftBtn"
+    ),
+
     () => moveLeft = true,
+
     () => moveLeft = false
 );
 
+
 holdButton(
-    document.getElementById("rightBtn"),
+
+    document.getElementById(
+        "rightBtn"
+    ),
+
     () => moveRight = true,
+
     () => moveRight = false
 );
 
+
+/* =========================================================
+   JUMP BUTTON
+   ========================================================= */
 
 document
     .getElementById("jumpBtn")
     .addEventListener(
         "touchstart",
         e => {
+
             e.preventDefault();
+
+            initAudio();
+
             jump();
+
         },
-        {passive:false}
+        { passive: false }
     );
+
 
 document
     .getElementById("jumpBtn")
@@ -1278,16 +2103,26 @@ document
     );
 
 
+/* =========================================================
+   SHOOT BUTTON
+   ========================================================= */
+
 document
     .getElementById("shootBtn")
     .addEventListener(
         "touchstart",
         e => {
+
             e.preventDefault();
+
+            initAudio();
+
             shoot();
+
         },
-        {passive:false}
+        { passive: false }
     );
+
 
 document
     .getElementById("shootBtn")
@@ -1305,23 +2140,38 @@ document.addEventListener(
     "keydown",
     e => {
 
-        if (e.key === "ArrowLeft" || e.key === "a") {
+        if (
+            e.key === "ArrowLeft" ||
+            e.key === "a"
+        ) {
+
             moveLeft = true;
         }
 
-        if (e.key === "ArrowRight" || e.key === "d") {
+
+        if (
+            e.key === "ArrowRight" ||
+            e.key === "d"
+        ) {
+
             moveRight = true;
         }
+
 
         if (
             e.key === "ArrowUp" ||
             e.key === "w" ||
             e.key === " "
         ) {
+
+            e.preventDefault();
+
             jump();
         }
 
+
         if (e.key === "Enter") {
+
             shoot();
         }
     }
@@ -1332,11 +2182,20 @@ document.addEventListener(
     "keyup",
     e => {
 
-        if (e.key === "ArrowLeft" || e.key === "a") {
+        if (
+            e.key === "ArrowLeft" ||
+            e.key === "a"
+        ) {
+
             moveLeft = false;
         }
 
-        if (e.key === "ArrowRight" || e.key === "d") {
+
+        if (
+            e.key === "ArrowRight" ||
+            e.key === "d"
+        ) {
+
             moveRight = false;
         }
     }
