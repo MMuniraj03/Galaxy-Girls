@@ -1,1 +1,1348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
+<title>Galaxy Girls</title>
+
+<style>
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #050713;
+    font-family: Arial, sans-serif;
+}
+
+body {
+    touch-action: none;
+}
+
+#game {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background-image: url("Gameplay station background .jpeg");
+    background-size: cover;
+    background-position: center;
+}
+
+/* Dark futuristic overlay */
+#game::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(
+            rgba(0,0,0,.18),
+            rgba(0,0,0,.35)
+        );
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* ---------------- HUD ---------------- */
+
+#hud {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    z-index: 50;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    pointer-events: none;
+}
+
+.panel {
+    background: rgba(5,10,25,.82);
+    border: 1px solid rgba(100,190,255,.65);
+    border-radius: 12px;
+    padding: 8px 12px;
+    color: white;
+    box-shadow: 0 0 15px rgba(0,160,255,.25);
+}
+
+#healthText {
+    font-size: 13px;
+    margin-bottom: 5px;
+}
+
+#healthBar,
+#enemyBar {
+    width: 150px;
+    height: 12px;
+    background: #252535;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+#healthFill {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg,#ff284d,#ff8a3d);
+}
+
+#enemyFill {
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg,#ff3333,#ffb000);
+}
+
+#score {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+#ammo {
+    margin-top: 4px;
+    font-size: 12px;
+}
+
+/* ---------------- Player ---------------- */
+
+#player {
+    position: absolute;
+    width: 95px;
+    height: 125px;
+    left: 80px;
+    bottom: 115px;
+    z-index: 15;
+    background-image: url("Heroine movement .png");
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position: center;
+    transition: transform .08s linear;
+}
+
+.playerFlip {
+    transform: scaleX(-1);
+}
+
+/* ---------------- Enemy ---------------- */
+
+.enemy {
+    position: absolute;
+    width: 100px;
+    height: 110px;
+    z-index: 12;
+    background-image: url("Enemies.png");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.boss {
+    width: 180px;
+    height: 190px;
+    background-image: url("Enemy boss.png");
+}
+
+/* ---------------- Bullets ---------------- */
+
+.bullet {
+    position: absolute;
+    width: 24px;
+    height: 8px;
+    border-radius: 10px;
+    background: #fff;
+    box-shadow:
+        0 0 7px #fff,
+        0 0 15px #55cfff,
+        0 0 25px #008cff;
+    z-index: 18;
+}
+
+/* ---------------- Shooting Effect ---------------- */
+
+.muzzle {
+    position: absolute;
+    width: 65px;
+    height: 65px;
+    z-index: 19;
+    background-image: url("Gun shooting effect.png");
+    background-size: contain;
+    background-repeat: no-repeat;
+    pointer-events: none;
+}
+
+/* ---------------- Enemy death ---------------- */
+
+.deathEffect {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    z-index: 30;
+    background-image: url("Enemies death effect .png");
+    background-size: contain;
+    background-repeat: no-repeat;
+    pointer-events: none;
+}
+
+/* ---------------- Loot ---------------- */
+
+.loot {
+    position: absolute;
+    width: 55px;
+    height: 55px;
+    z-index: 13;
+    background-image: url("Loot.png");
+    background-size: contain;
+    background-repeat: no-repeat;
+    animation: lootFloat .8s infinite alternate;
+}
+
+@keyframes lootFloat {
+    from { transform: translateY(0); }
+    to   { transform: translateY(-8px); }
+}
+
+/* ---------------- Reward ---------------- */
+
+.reward {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    z-index: 13;
+    background-image: url("Rewards.png");
+    background-size: contain;
+    background-repeat: no-repeat;
+}
+
+/* ---------------- Door / Window decoration ---------------- */
+
+.environment {
+    position: absolute;
+    z-index: 3;
+    pointer-events: none;
+}
+
+/* ---------------- Controls ---------------- */
+
+#controls {
+    position: absolute;
+    bottom: 15px;
+    left: 15px;
+    right: 15px;
+    z-index: 60;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.controlGroup {
+    display: flex;
+    gap: 10px;
+}
+
+button {
+    border: 1px solid rgba(150,220,255,.8);
+    background:
+        linear-gradient(
+            145deg,
+            rgba(90,170,220,.8),
+            rgba(15,55,100,.9)
+        );
+    color: white;
+    font-weight: bold;
+    min-width: 58px;
+    height: 58px;
+    border-radius: 18px;
+    box-shadow:
+        inset 0 0 10px rgba(255,255,255,.15),
+        0 0 15px rgba(0,160,255,.3);
+    font-size: 23px;
+}
+
+button:active {
+    transform: scale(.9);
+}
+
+#shootBtn {
+    width: 75px;
+    height: 75px;
+    border-radius: 50%;
+    font-size: 15px;
+}
+
+/* ---------------- Start screen ---------------- */
+
+#startScreen {
+    position: absolute;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background:
+        radial-gradient(
+            circle at center,
+            rgba(30,90,150,.35),
+            rgba(0,0,0,.92)
+        );
+    color: white;
+}
+
+#startScreen h1 {
+    font-size: clamp(38px,10vw,72px);
+    letter-spacing: 4px;
+    text-shadow:
+        0 0 10px #4ccaff,
+        0 0 25px #087cff;
+}
+
+#startScreen p {
+    margin-top: 10px;
+    color: #bfeaff;
+    text-align: center;
+    padding: 0 25px;
+}
+
+#startBtn {
+    margin-top: 30px;
+    width: 190px;
+    height: 60px;
+    border-radius: 30px;
+    font-size: 18px;
+}
+
+/* ---------------- Game Over ---------------- */
+
+#gameOver {
+    position: absolute;
+    inset: 0;
+    z-index: 110;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    background: rgba(0,0,0,.88);
+    color: white;
+}
+
+#gameOver h2 {
+    font-size: 45px;
+    color: #ff4455;
+}
+
+#restartBtn {
+    margin-top: 25px;
+    width: 180px;
+}
+
+/* ---------------- Boss warning ---------------- */
+
+#bossWarning {
+    position: absolute;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 70;
+    display: none;
+    color: #ff4040;
+    font-weight: bold;
+    font-size: 24px;
+    text-shadow: 0 0 15px red;
+    animation: warning .5s infinite alternate;
+}
+
+@keyframes warning {
+    from { opacity: .4; }
+    to   { opacity: 1; }
+}
+
+/* ---------------- Mobile ---------------- */
+
+@media (max-width: 600px) {
+
+    #player {
+        width: 78px;
+        height: 105px;
+        bottom: 105px;
+    }
+
+    .enemy {
+        width: 78px;
+        height: 90px;
+    }
+
+    .boss {
+        width: 135px;
+        height: 150px;
+    }
+
+    #healthBar,
+    #enemyBar {
+        width: 115px;
+    }
+
+    button {
+        min-width: 52px;
+        height: 52px;
+    }
+
+    #shootBtn {
+        width: 68px;
+        height: 68px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div id="game">
+
+    <div id="hud">
+
+        <div class="panel">
+            <div id="healthText">❤️❤️❤️❤️❤️ HEALTH</div>
+            <div id="healthBar">
+                <div id="healthFill"></div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div id="score">SCORE: 0</div>
+            <div id="ammo">🔫 AMMO: ∞</div>
+        </div>
+
+    </div>
+
+    <div id="bossWarning">⚠ BOSS INCOMING ⚠</div>
+
+    <div id="player"></div>
+
+    <div id="controls">
+
+        <div class="controlGroup">
+            <button id="leftBtn">◀</button>
+            <button id="rightBtn">▶</button>
+        </div>
+
+        <div class="controlGroup">
+            <button id="jumpBtn">⬆</button>
+            <button id="shootBtn">FIRE</button>
+        </div>
+
+    </div>
+
+    <div id="startScreen">
+        <h1>GALAXY GIRLS</h1>
+        <p>
+            Survive the enemies.<br>
+            Collect loot. Defeat the boss.
+        </p>
+        <button id="startBtn">START GAME</button>
+    </div>
+
+    <div id="gameOver">
+        <h2>GAME OVER</h2>
+        <div id="finalScore"></div>
+        <button id="restartBtn">PLAY AGAIN</button>
+    </div>
+
+</div>
+
+<script>
+
+/* =========================================================
+   GALAXY GIRLS
+   Basic playable mobile game
+   ========================================================= */
+
+const game = document.getElementById("game");
+const player = document.getElementById("player");
+
+const healthFill = document.getElementById("healthFill");
+const healthText = document.getElementById("healthText");
+const scoreText = document.getElementById("score");
+
+const startScreen = document.getElementById("startScreen");
+const gameOverScreen = document.getElementById("gameOver");
+const finalScore = document.getElementById("finalScore");
+
+const bossWarning = document.getElementById("bossWarning");
+
+let gameRunning = false;
+
+let playerX = 80;
+let playerY = 0;
+
+let velocityY = 0;
+
+let moveLeft = false;
+let moveRight = false;
+
+let health = 100;
+
+/*
+   Starting with 5 hearts.
+*/
+let hearts = 5;
+
+let score = 0;
+
+let enemies = [];
+let bullets = [];
+let loots = [];
+
+let enemySpawnTimer = 0;
+
+let bossActive = false;
+let boss = null;
+
+let lastTime = 0;
+
+
+/* =========================================================
+   PLAYER
+   ========================================================= */
+
+function updatePlayer(dt) {
+
+    const speed = 260;
+
+    if (moveLeft) {
+        playerX -= speed * dt;
+        player.classList.add("playerFlip");
+    }
+
+    if (moveRight) {
+        playerX += speed * dt;
+        player.classList.remove("playerFlip");
+    }
+
+    playerX = Math.max(0, Math.min(
+        game.clientWidth - player.offsetWidth,
+        playerX
+    ));
+
+    /* Gravity */
+
+    velocityY += 1100 * dt;
+    playerY += velocityY * dt;
+
+    const ground = game.clientHeight - 115 - player.offsetHeight;
+
+    if (playerY > ground) {
+        playerY = ground;
+        velocityY = 0;
+    }
+
+    player.style.left = playerX + "px";
+    player.style.bottom =
+        (game.clientHeight - playerY - player.offsetHeight) + "px";
+}
+
+
+/* =========================================================
+   JUMP
+   ========================================================= */
+
+function jump() {
+
+    const ground =
+        game.clientHeight - 115 - player.offsetHeight;
+
+    if (playerY >= ground - 5) {
+
+        velocityY = -500;
+    }
+}
+
+
+/* =========================================================
+   SHOOT
+   ========================================================= */
+
+function shoot() {
+
+    if (!gameRunning) return;
+
+    const rect = player.getBoundingClientRect();
+    const gameRect = game.getBoundingClientRect();
+
+    const bullet = document.createElement("div");
+
+    bullet.className = "bullet";
+
+    let bx =
+        rect.left -
+        gameRect.left +
+        rect.width * .75;
+
+    let by =
+        rect.top -
+        gameRect.top +
+        rect.height * .42;
+
+    bullet.style.left = bx + "px";
+    bullet.style.top = by + "px";
+
+    game.appendChild(bullet);
+
+    bullets.push({
+        el: bullet,
+        x: bx,
+        y: by,
+        speed: 850
+    });
+
+    /* muzzle flash */
+
+    const muzzle = document.createElement("div");
+
+    muzzle.className = "muzzle";
+
+    muzzle.style.left =
+        (bx + 5) + "px";
+
+    muzzle.style.top =
+        (by - 30) + "px";
+
+    game.appendChild(muzzle);
+
+    setTimeout(() => {
+        muzzle.remove();
+    }, 120);
+}
+
+
+/* =========================================================
+   CREATE ENEMY
+   ========================================================= */
+
+function createEnemy() {
+
+    if (bossActive) return;
+
+    const enemy = document.createElement("div");
+
+    enemy.className = "enemy";
+
+    let x =
+        game.clientWidth + 20;
+
+    let y =
+        game.clientHeight -
+        115 -
+        95;
+
+    enemy.style.left = x + "px";
+    enemy.style.top = y + "px";
+
+    game.appendChild(enemy);
+
+    enemies.push({
+        el: enemy,
+        x: x,
+        y: y,
+        speed: 80 + Math.random() * 60,
+        hp: 3,
+        attackTimer: 0
+    });
+}
+
+
+/* =========================================================
+   CREATE BOSS
+   ========================================================= */
+
+function createBoss() {
+
+    bossActive = true;
+
+    bossWarning.style.display = "block";
+
+    setTimeout(() => {
+
+        bossWarning.style.display = "none";
+
+        boss = document.createElement("div");
+
+        boss.className = "enemy boss";
+
+        boss.style.left =
+            (game.clientWidth - 190) + "px";
+
+        boss.style.top =
+            (game.clientHeight / 2 - 100) + "px";
+
+        game.appendChild(boss);
+
+        boss = {
+            el: boss,
+            x: game.clientWidth - 190,
+            y: game.clientHeight / 2 - 100,
+            hp: 25,
+            speed: 45
+        };
+
+    }, 1500);
+}
+
+
+/* =========================================================
+   DEATH EFFECT
+   ========================================================= */
+
+function deathEffect(x, y) {
+
+    const effect = document.createElement("div");
+
+    effect.className = "deathEffect";
+
+    effect.style.left = x + "px";
+    effect.style.top = y + "px";
+
+    game.appendChild(effect);
+
+    setTimeout(() => {
+        effect.remove();
+    }, 700);
+}
+
+
+/* =========================================================
+   LOOT
+   ========================================================= */
+
+function createLoot(x, y) {
+
+    const loot = document.createElement("div");
+
+    loot.className = "loot";
+
+    loot.style.left = x + "px";
+    loot.style.top = y + "px";
+
+    game.appendChild(loot);
+
+    loots.push({
+        el: loot,
+        x: x,
+        y: y
+    });
+}
+
+
+/* =========================================================
+   DAMAGE PLAYER
+   ========================================================= */
+
+function damagePlayer(amount) {
+
+    health -= amount;
+
+    if (health < 0) {
+        health = 0;
+    }
+
+    healthFill.style.width =
+        health + "%";
+
+    if (health <= 0) {
+
+        hearts--;
+
+        if (hearts > 0) {
+
+            health = 100;
+
+            healthFill.style.width = "100%";
+
+        } else {
+
+            endGame();
+        }
+    }
+
+    updateHeartDisplay();
+}
+
+
+/* =========================================================
+   HEART DISPLAY
+   ========================================================= */
+
+function updateHeartDisplay() {
+
+    let heartsText = "";
+
+    for (let i = 0; i < hearts; i++) {
+        heartsText += "❤️";
+    }
+
+    healthText.textContent =
+        heartsText + " HEALTH";
+}
+
+
+/* =========================================================
+   COLLISION
+   ========================================================= */
+
+function collision(a, b) {
+
+    return (
+        a.x < b.x + b.width &&
+        a.x + a.width > b.x &&
+        a.y < b.y + b.height &&
+        a.y + a.height > b.y
+    );
+}
+
+
+/* =========================================================
+   GAME UPDATE
+   ========================================================= */
+
+function update(dt) {
+
+    if (!gameRunning) return;
+
+    updatePlayer(dt);
+
+    /* -----------------------------------------
+       Bullets
+       ----------------------------------------- */
+
+    for (let i = bullets.length - 1; i >= 0; i--) {
+
+        const b = bullets[i];
+
+        b.x += b.speed * dt;
+
+        b.el.style.left =
+            b.x + "px";
+
+        if (b.x > game.clientWidth + 100) {
+
+            b.el.remove();
+
+            bullets.splice(i, 1);
+
+            continue;
+        }
+
+        const bulletRect = {
+            x: b.x,
+            y: b.y,
+            width: 24,
+            height: 8
+        };
+
+        /* Enemy collision */
+
+        for (let j = enemies.length - 1; j >= 0; j--) {
+
+            const e = enemies[j];
+
+            const enemyRect = {
+                x: e.x,
+                y: e.y,
+                width: e.el.offsetWidth,
+                height: e.el.offsetHeight
+            };
+
+            if (collision(bulletRect, enemyRect)) {
+
+                e.hp--;
+
+                b.el.remove();
+
+                bullets.splice(i, 1);
+
+                if (e.hp <= 0) {
+
+                    deathEffect(e.x, e.y);
+
+                    createLoot(e.x, e.y);
+
+                    e.el.remove();
+
+                    enemies.splice(j, 1);
+
+                    score += 100;
+
+                    scoreText.textContent =
+                        "SCORE: " + score;
+                }
+
+                break;
+            }
+        }
+
+        /* Boss collision */
+
+        if (boss) {
+
+            const bossRect = {
+                x: boss.x,
+                y: boss.y,
+                width: boss.el.offsetWidth,
+                height: boss.el.offsetHeight
+            };
+
+            if (collision(bulletRect, bossRect)) {
+
+                boss.hp--;
+
+                b.el.remove();
+
+                bullets.splice(i, 1);
+
+                if (boss.hp <= 0) {
+
+                    deathEffect(
+                        boss.x,
+                        boss.y
+                    );
+
+                    boss.el.remove();
+
+                    boss = null;
+
+                    bossActive = false;
+
+                    score += 2000;
+
+                    scoreText.textContent =
+                        "SCORE: " + score;
+
+                    setTimeout(() => {
+                        alert("BOSS DEFEATED! 🎉");
+                    }, 200);
+                }
+            }
+        }
+    }
+
+
+    /* -----------------------------------------
+       Enemies
+       ----------------------------------------- */
+
+    for (let i = enemies.length - 1; i >= 0; i--) {
+
+        const e = enemies[i];
+
+        e.x -= e.speed * dt;
+
+        e.el.style.left =
+            e.x + "px";
+
+        /* Enemy reaches player */
+
+        const pRect = {
+            x: playerX,
+            y: playerY,
+            width: player.offsetWidth,
+            height: player.offsetHeight
+        };
+
+        const eRect = {
+            x: e.x,
+            y: e.y,
+            width: e.el.offsetWidth,
+            height: e.el.offsetHeight
+        };
+
+        if (collision(pRect, eRect)) {
+
+            damagePlayer(12);
+
+            e.el.remove();
+
+            enemies.splice(i, 1);
+
+            continue;
+        }
+
+        if (e.x < -150) {
+
+            e.el.remove();
+
+            enemies.splice(i, 1);
+        }
+    }
+
+
+    /* -----------------------------------------
+       Boss movement
+       ----------------------------------------- */
+
+    if (boss) {
+
+        boss.x -= boss.speed * dt;
+
+        if (boss.x <
+            game.clientWidth * .55) {
+
+            boss.x =
+                game.clientWidth * .55;
+        }
+
+        boss.el.style.left =
+            boss.x + "px";
+
+        boss.el.style.top =
+            boss.y + "px";
+
+        const pRect = {
+            x: playerX,
+            y: playerY,
+            width: player.offsetWidth,
+            height: player.offsetHeight
+        };
+
+        const bossRect = {
+            x: boss.x,
+            y: boss.y,
+            width: boss.el.offsetWidth,
+            height: boss.el.offsetHeight
+        };
+
+        if (collision(pRect, bossRect)) {
+
+            damagePlayer(25);
+        }
+    }
+
+
+    /* -----------------------------------------
+       Loot collection
+       ----------------------------------------- */
+
+    for (let i = loots.length - 1; i >= 0; i--) {
+
+        const l = loots[i];
+
+        l.y += 35 * dt;
+
+        l.el.style.top =
+            l.y + "px";
+
+        const pRect = {
+            x: playerX,
+            y: playerY,
+            width: player.offsetWidth,
+            height: player.offsetHeight
+        };
+
+        const lRect = {
+            x: l.x,
+            y: l.y,
+            width: 55,
+            height: 55
+        };
+
+        if (collision(pRect, lRect)) {
+
+            score += 250;
+
+            scoreText.textContent =
+                "SCORE: " + score;
+
+            /* Restore health */
+
+            health += 40;
+
+            if (health > 100) {
+                health = 100;
+            }
+
+            healthFill.style.width =
+                health + "%";
+
+            l.el.remove();
+
+            loots.splice(i, 1);
+        }
+    }
+
+
+    /* -----------------------------------------
+       Spawn enemies
+       ----------------------------------------- */
+
+    enemySpawnTimer += dt;
+
+    if (enemySpawnTimer > 2.2) {
+
+        enemySpawnTimer = 0;
+
+        createEnemy();
+    }
+
+
+    /* -----------------------------------------
+       Boss after score
+       ----------------------------------------- */
+
+    if (
+        score >= 1500 &&
+        !bossActive &&
+        !boss
+    ) {
+
+        createBoss();
+    }
+}
+
+
+/* =========================================================
+   GAME LOOP
+   ========================================================= */
+
+function gameLoop(time) {
+
+    if (!lastTime) {
+        lastTime = time;
+    }
+
+    const dt =
+        Math.min(
+            (time - lastTime) / 1000,
+            .033
+        );
+
+    lastTime = time;
+
+    update(dt);
+
+    requestAnimationFrame(gameLoop);
+}
+
+requestAnimationFrame(gameLoop);
+
+
+/* =========================================================
+   START
+   ========================================================= */
+
+function startGame() {
+
+    startScreen.style.display =
+        "none";
+
+    gameOverScreen.style.display =
+        "none";
+
+    gameRunning = true;
+
+    playerX = 80;
+
+    playerY =
+        game.clientHeight -
+        115 -
+        player.offsetHeight;
+
+    velocityY = 0;
+
+    health = 100;
+
+    hearts = 5;
+
+    score = 0;
+
+    healthFill.style.width =
+        "100%";
+
+    scoreText.textContent =
+        "SCORE: 0";
+
+    updateHeartDisplay();
+}
+
+
+/* =========================================================
+   GAME OVER
+   ========================================================= */
+
+function endGame() {
+
+    gameRunning = false;
+
+    finalScore.textContent =
+        "Final Score: " + score;
+
+    gameOverScreen.style.display =
+        "flex";
+}
+
+
+/* =========================================================
+   BUTTON EVENTS
+   ========================================================= */
+
+document
+    .getElementById("startBtn")
+    .addEventListener(
+        "click",
+        startGame
+    );
+
+document
+    .getElementById("restartBtn")
+    .addEventListener(
+        "click",
+        startGame
+    );
+
+
+/* =========================================================
+   MOBILE MOVEMENT
+   ========================================================= */
+
+function holdButton(button, down, up) {
+
+    button.addEventListener(
+        "touchstart",
+        e => {
+            e.preventDefault();
+            down();
+        },
+        {passive:false}
+    );
+
+    button.addEventListener(
+        "touchend",
+        e => {
+            e.preventDefault();
+            up();
+        },
+        {passive:false}
+    );
+
+    button.addEventListener(
+        "mousedown",
+        e => {
+            e.preventDefault();
+            down();
+        }
+    );
+
+    button.addEventListener(
+        "mouseup",
+        e => {
+            e.preventDefault();
+            up();
+        }
+    );
+}
+
+
+holdButton(
+    document.getElementById("leftBtn"),
+    () => moveLeft = true,
+    () => moveLeft = false
+);
+
+holdButton(
+    document.getElementById("rightBtn"),
+    () => moveRight = true,
+    () => moveRight = false
+);
+
+
+document
+    .getElementById("jumpBtn")
+    .addEventListener(
+        "touchstart",
+        e => {
+            e.preventDefault();
+            jump();
+        },
+        {passive:false}
+    );
+
+document
+    .getElementById("jumpBtn")
+    .addEventListener(
+        "click",
+        jump
+    );
+
+
+document
+    .getElementById("shootBtn")
+    .addEventListener(
+        "touchstart",
+        e => {
+            e.preventDefault();
+            shoot();
+        },
+        {passive:false}
+    );
+
+document
+    .getElementById("shootBtn")
+    .addEventListener(
+        "click",
+        shoot
+    );
+
+
+/* =========================================================
+   KEYBOARD
+   ========================================================= */
+
+document.addEventListener(
+    "keydown",
+    e => {
+
+        if (e.key === "ArrowLeft" || e.key === "a") {
+            moveLeft = true;
+        }
+
+        if (e.key === "ArrowRight" || e.key === "d") {
+            moveRight = true;
+        }
+
+        if (
+            e.key === "ArrowUp" ||
+            e.key === "w" ||
+            e.key === " "
+        ) {
+            jump();
+        }
+
+        if (e.key === "Enter") {
+            shoot();
+        }
+    }
+);
+
+
+document.addEventListener(
+    "keyup",
+    e => {
+
+        if (e.key === "ArrowLeft" || e.key === "a") {
+            moveLeft = false;
+        }
+
+        if (e.key === "ArrowRight" || e.key === "d") {
+            moveRight = false;
+        }
+    }
+);
+
+</script>
+
+</body>
+</html>
